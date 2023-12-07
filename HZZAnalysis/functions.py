@@ -1,24 +1,143 @@
-import uproot # for reading .root files
-import awkward as ak # to represent nested data in columnar format
-import vector # for 4-momentum calculations
-import time # to measure time to analyse
-import numpy as np # for numerical calculations such as histogramming
-import matplotlib.pyplot as plt # for plotting
-from matplotlib.ticker import AutoMinorLocator # for minor ticks
-import infofile # local file containing cross-sections, sums of weights, dataset IDs
-import math
-
+import uproot
+import awkward as ak 
+import vector
+import time
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import AutoMinorLocator
+import infofile
+import json
+import gzip
 
 # CONSTANTS
-lumi = 10 # fb-1 # data_A,data_B,data_C,data_D
+lumi = 10
 
-fraction = 1.0 # reduce this is if you want the code to run quicker
+fraction = 1.0
 
 tuple_path = "https://atlas-opendata.web.cern.ch/atlas-opendata/samples/2020/4lep/" # web address
 
 MeV = 0.001
 GeV = 1.0
 
+samples = {
+
+    'data': {
+        'list' : ['data_A','data_B','data_C','data_D'],
+    },
+
+    r'Background $Z,t\bar{t}$' : { # Z + ttbar
+        'list' : ['Zee','Zmumu','ttbar_lep'],
+        'color' : "#6b59d3" # purple
+    },
+
+    r'Background $ZZ^*$' : { # ZZ
+        'list' : ['llll'],
+        'color' : "#ff0000" # red
+    },
+
+    r'Signal ($m_H$ = 125 GeV)' : { # H -> ZZ -> llll
+        'list' : ['ggH125_ZZ4lep','VBFH125_ZZ4lep','WH125_ZZ4lep','ZH125_ZZ4lep'],
+        'color' : "#00cdff" # light blue
+    },
+
+}
+
+
+# GET FILE STRING - Inputter
+def get_file_names(samples):
+    """
+    Returns a list of file names based on the given samples.
+
+    Parameters:
+    samples (dict): A dictionary containing sample information.
+
+    Returns:
+    messages: A list of file names and prefixes (messages to send to workers)
+
+    """
+    messages = [] # define empty list to hold messages to send to workers
+    
+    for s in samples: # loop over samples
+        for val in samples[s]['list']: # loop over each file
+            if s == 'data':
+                prefix = "Data/"
+            else:
+                prefix = "MC/mc_"+str(infofile.infos[val]["DSID"])+"."
+            
+            message = prefix+" "+val
+            messages.append(message) # append file message to list of messages
+
+    return messages # return list of messages to send to workers
+
+
+# READING FILE - Worker
+def read_file(message):
+    message = message.decode('utf-8')
+    prefix = message.split()[0] # get prefix from message
+    sample = message.split()[1] # get sample name from message
+
+    path = tuple_path+prefix+sample+".4lep.root"
+
+    start = time.time() # start the clock
+    #print("\tProcessing: "+sample) # print which sample is being processed
+    data_all = [] # define empty list to hold all data for this sample
+    
+    # open the tree called mini using a context manager (will automatically close files/resources)
+    with uproot.open(path + ":mini") as tree:
+        numevents = tree.num_entries # number of events
+        if 'data' not in sample: xsec_weight = get_xsec_weight(sample) # get cross-section weight
+        for data in tree.iterate(['lep_pt','lep_eta','lep_phi',
+                                  'lep_E','lep_charge','lep_type', 
+                                  # add more variables here if you make cuts on them 
+                                  'mcWeight','scaleFactor_PILEUP',
+                                  'scaleFactor_ELE','scaleFactor_MUON',
+                                  'scaleFactor_LepTRIGGER'], # variables to calculate Monte Carlo weight
+                                 library="ak", # choose output type as awkward array
+                                 entry_stop=numevents*fraction): # process up to numevents*fraction
+
+            nIn = len(data) # number of events in this batch
+
+            if 'data' not in sample: # only do this for Monte Carlo simulation files
+                # multiply all Monte Carlo weights and scale factors together to give total weight
+                data['totalWeight'] = calc_weight(xsec_weight, data)
+
+            # cut on lepton charge using the function cut_lep_charge defined above
+            data = data[~cut_lep_charge(data.lep_charge)]
+
+            # cut on lepton type using the function cut_lep_type defined above
+            data = data[~cut_lep_type(data.lep_type)]
+
+            # calculation of 4-lepton invariant mass using the function calc_mllll defined above
+            data['mllll'] = calc_mllll(data.lep_pt, data.lep_eta, data.lep_phi, data.lep_E)
+            
+            # array contents can be printed at any stage like this
+            #print(data)
+
+            # array column can be printed at any stage like this
+            #print(data['lep_pt'])
+
+            # multiple array columns can be printed at any stage like this
+            #print(data[['lep_pt','lep_eta']])
+
+            nOut = len(data) # number of events passing cuts in this batch
+            data_all.append(data) # append array from this batch
+            elapsed = time.time() - start # time taken to process
+            #print("\t\t nIn: "+str(nIn)+",\t nOut: \t"+str(nOut)+"\t in "+str(round(elapsed,1))+"s") # events before and after
+    
+    data = ak.concatenate(data_all) # return array containing events passing all cuts   
+    serialised_data = ak.to_list(data)
+
+    data_dict = {"name": sample, "data": serialised_data}
+    json_dict = json.dumps(data_dict)
+
+    compressed_data = gzip.compress(json_dict.encode('utf-8'))
+
+    return compressed_data
+
+
+
+
+## ORIGINAL FUNCTIONS
 
 # GET DATA FROM FILES
 def get_data_from_files(samples):
@@ -32,8 +151,10 @@ def get_data_from_files(samples):
             else: # MC prefix
                 prefix = "MC/mc_"+str(infofile.infos[val]["DSID"])+"."
             fileString = tuple_path+prefix+val+".4lep.root" # file name to open
-            temp = read_file(fileString,val) # call the function read_file defined below
+            temp = read_file_original(fileString,val) # call the function read_file defined below
             frames.append(temp) # append array returned from read_file to list of awkward arrays
+        print(frames)
+        print(len(frames))
         data[s] = ak.concatenate(frames) # dictionary entry is concatenated awkward arrays
     
     return data # return dictionary of awkward arrays
@@ -87,7 +208,7 @@ def cut_lep_type(lep_type):
 
 
 # READ FILE
-def read_file(path,sample):
+def read_file_original(path,sample):
     start = time.time() # start the clock
     print("\tProcessing: "+sample) # print which sample is being processed
     data_all = [] # define empty list to hold all data for this sample
@@ -119,7 +240,7 @@ def read_file(path,sample):
 
             # calculation of 4-lepton invariant mass using the function calc_mllll defined above
             data['mllll'] = calc_mllll(data.lep_pt, data.lep_eta, data.lep_phi, data.lep_E)
-
+            print(data['mllll'])
             # array contents can be printed at any stage like this
             #print(data)
 
@@ -132,13 +253,13 @@ def read_file(path,sample):
             nOut = len(data) # number of events passing cuts in this batch
             data_all.append(data) # append array from this batch
             elapsed = time.time() - start # time taken to process
-            print("\t\t nIn: "+str(nIn)+",\t nOut: \t"+str(nOut)+"\t in "+str(round(elapsed,1))+"s") # events before and after
+            #print("\t\t nIn: "+str(nIn)+",\t nOut: \t"+str(nOut)+"\t in "+str(round(elapsed,1))+"s") # events before and after
     
     return ak.concatenate(data_all) # return array containing events passing all cuts
 
 
 # PLOT DATA
-def plot_data(data, samples):
+def plot_data(data):
 
     xmin = 80 * GeV
     xmax = 250 * GeV
@@ -261,9 +382,8 @@ def plot_data(data, samples):
 
     # draw the legend
     main_axes.legend( frameon=False ) # no box around the legend
-    
-    # saving the figure
-    output_path = '/../output.png'  # Replace with the desired absolute path
-    plt.savefig(output_path)
+
+    plt.savefig('output.png')
+    print("SLAY")
     
     return
