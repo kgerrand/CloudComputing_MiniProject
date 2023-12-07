@@ -1,9 +1,12 @@
 import uproot
 import awkward as ak 
 import vector
-import infofile
 import json
 import gzip
+import sys
+
+sys.path.append('../') # add parent directory to path to import infofile
+import infofile
 
 # CONSTANTS
 fraction = 0.1

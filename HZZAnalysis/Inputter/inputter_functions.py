@@ -1,5 +1,9 @@
-import infofile
 import json
+import sys
+
+sys.path.append('../') # add parent directory to path to import infofile
+import infofile
+
 
 # FUNCTIONS
 def extract_samples():
@@ -9,7 +13,7 @@ def extract_samples():
     Returns:
         dict: A dictionary containing the extracted samples.
     """
-    with open('samples.json') as f:
+    with open('../samples.json') as f:
         samples = json.load(f)
     return samples
 

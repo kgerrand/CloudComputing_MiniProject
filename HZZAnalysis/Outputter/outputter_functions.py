@@ -17,7 +17,7 @@ def extract_samples():
     Returns:
         dict: A dictionary containing the extracted samples.
     """
-    with open('samples.json') as f:
+    with open('../samples.json') as f:
         samples = json.load(f)
     return samples
 
@@ -169,7 +169,7 @@ def plot_data(data, samples):
     # draw the legend
     main_axes.legend( frameon=False ) # no box around the legend
 
-    plt.savefig('output_plot.png')
+    plt.savefig('../output_plot.png')
     print("Data plotted and saved as 'output_plot.png'.")
     
     return
