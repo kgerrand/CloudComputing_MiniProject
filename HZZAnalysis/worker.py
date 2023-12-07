@@ -1,39 +1,44 @@
 import pika
-import json
-import zlib
 
-# IMPORT FUNCTIONS
-from functions import *
+from worker_functions import read_file
 
-# function for recieving file strings, reading data and sending to outputter
-def callback(ch, method, properties, message):
-    # recieve data from inputter
-    # channel.basic_ack(delivery_tag=method.delivery_tag)
-    
-    # process data
-    compressed_data=read_file(message)
-    print(type(compressed_data))
-    print("Data processed")
-
-    # send data to outputter
-    channel.basic_publish(exchange='',routing_key='output',body=compressed_data)
-    print("sent")
-
-# communication setup
-
-# input queue
+# COMMUNICATION SETUP
+# Input Queue
 params = pika.ConnectionParameters('localhost')
 connection = pika.BlockingConnection(params)
 channel = connection.channel()
-channel.queue_declare(queue='messages')
+channel.queue_declare(queue='toworkers')
 
-channel.basic_consume(queue='messages', auto_ack=True, on_message_callback=callback)
+# Output Queue
+channel.queue_declare(queue='tooutput')
 
 
-# output queue
-channel.queue_declare(queue='output')
+# CALLBACK FUNCTION
+def callback(ch, method, properties, message):
+    """
+    Callback function that processes the received message and sends it to the outputter.
 
-print(' [*] Waiting for messages. To exit press CTRL+C')
+    Args:
+        ch: The channel object.
+        method: The method object.
+        properties: The properties object.
+        message: The received message.
+
+    Returns:
+        None
+    """
+    #channel.basic_ack(delivery_tag=method.delivery_tag)
+    
+    # processing the received message
+    compressed_data = read_file(message)
+
+    # sending processed data to outputter
+    channel.basic_publish(exchange='', routing_key='tooutput', body=compressed_data)
+    print("Processed and sent to outputter.")
+
+# MAIN
+channel.basic_consume(queue='toworkers', auto_ack=True, on_message_callback=callback)
+print('Waiting for messages.')
 channel.start_consuming()
 
 

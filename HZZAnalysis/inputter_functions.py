@@ -1,17 +1,7 @@
 import infofile
 import json
 
-# CONSTANTS
-lumi = 10
-
-fraction = 0.1
-
-tuple_path = "https://atlas-opendata.web.cern.ch/atlas-opendata/samples/2020/4lep/" # web address
-
-MeV = 0.001
-GeV = 1.0
-
-
+# FUNCTIONS
 def extract_samples():
     """
     Extracts samples from the 'samples.json' file and returns them.
@@ -22,7 +12,6 @@ def extract_samples():
     with open('samples.json') as f:
         samples = json.load(f)
     return samples
-
 
 def get_file_string(samples):
     """

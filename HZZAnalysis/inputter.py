@@ -5,7 +5,7 @@ from inputter_functions import *
 params = pika.ConnectionParameters('localhost')
 connection = pika.BlockingConnection(params)
 channel = connection.channel()
-channel.queue_declare(queue='filestrings')
+channel.queue_declare(queue='toworkers')
 
 
 # extracting samples from samples.json and from that determining file strings to send
@@ -16,7 +16,7 @@ filestrings = get_file_string(samples)
 # sends file strings to worker(s)
 for string in filestrings:
     channel.basic_publish(exchange='',
-    routing_key='messages',
+    routing_key='toworkers',
     body=string)
     print(f"Sent {string}")
 
