@@ -1,13 +1,16 @@
-import json
+import json, sys
 import awkward as ak 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
 
+sys.path.append('../') # add parent directory to path to import constants
+import constants
+
 # CONSTANTS
-GeV = 1.0
-fraction = 0.1
-lumi = 10
+GeV = constants.GeV
+fraction = constants.fraction
+lumi = constants.lumi
 
 # FUNCTIONS
 def extract_samples():
@@ -157,7 +160,7 @@ def plot_data(data, samples):
     lumi_used = str(lumi*fraction) # luminosity to write on the plot
     plt.text(0.05, # x
              0.82, # y
-             '$\sqrt{s}$=13 TeV,$\int$L dt = '+lumi_used+' fb$^{-1}$', # text
+             r'$\sqrt{s}$=13 TeV,$\int$L dt = '+lumi_used+' fb$^{-1}$', # text
              transform=main_axes.transAxes ) # coordinate system used is that of main_axes
     
     # Add a label for the analysis carried out
@@ -169,7 +172,7 @@ def plot_data(data, samples):
     # draw the legend
     main_axes.legend( frameon=False ) # no box around the legend
 
-    plt.savefig('../output_plot.png')
-    print("Data plotted and saved as 'output_plot.png'.")
+    plt.savefig('/app/data/HZZPlot.png')
+    print("Data plotted and saved as 'HZZPlot.png'.")
     
     return

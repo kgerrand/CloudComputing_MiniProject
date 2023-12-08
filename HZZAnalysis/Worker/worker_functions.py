@@ -1,17 +1,16 @@
 import uproot
 import awkward as ak 
 import vector
-import json
-import gzip
-import sys
+import json, gzip, sys
 
-sys.path.append('../') # add parent directory to path to import infofile
+sys.path.append('../') # add parent directory to path to import files
 import infofile
+import constants
 
 # CONSTANTS
-fraction = 0.1
-lumi = 10
-MeV = 0.001
+fraction = constants.fraction
+lumi = constants.lumi
+MeV = constants.MeV
 
 tuple_path = "https://atlas-opendata.web.cern.ch/atlas-opendata/samples/2020/4lep/" # web address
 
