@@ -28,7 +28,7 @@ for n in range(10):
         print(f"Failed to connect to RabbitMQ after {n+1} attempt(s). Retrying.")
         time.sleep(7)
 channel = connection.channel()
-channel.queue_declare(queue='tooutput')
+channel.queue_declare(queue='data_rendering')
 
 
 # Callback function
@@ -70,11 +70,11 @@ def callback(ch, method, properties, message):
         channel.stop_consuming()
         print("All samples received!")
     else:
-        print(f"Recieved {message_count} processed dataset(s). Waiting for {message_threshold - message_count} more.")
+        print(f"Received {message_count} processed dataset(s). Waiting for {message_threshold - message_count} more.")
 
 
 # MAIN
-channel.basic_consume(queue='tooutput', auto_ack=True, on_message_callback=callback)
+channel.basic_consume(queue='data_rendering', auto_ack=True, on_message_callback=callback)
 print(f'Waiting for data from workers. Expecting {message_threshold} sample(s).')
 channel.start_consuming()
 # closing the connection once all data is received

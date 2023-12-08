@@ -12,7 +12,7 @@ for n in range(10):
         print(f"Failed to connect to RabbitMQ after {n+1} attempt(s). Retrying.")
         time.sleep(7)
 channel = connection.channel()
-channel.queue_declare(queue='toworkers')
+channel.queue_declare(queue='data_processing')
 
 
 # MAIN
@@ -24,7 +24,7 @@ filestrings = get_file_string(samples)
 # sends file strings to worker(s)
 for string in filestrings:
     channel.basic_publish(exchange='',
-    routing_key='toworkers',
+    routing_key='data_processing',
     body=string)
     print(f"Sent {string}")
 

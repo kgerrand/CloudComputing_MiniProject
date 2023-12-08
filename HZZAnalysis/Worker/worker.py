@@ -15,10 +15,10 @@ for n in range(10):
 channel = connection.channel()
 
 # Input Queue
-channel.queue_declare(queue='toworkers')
+channel.queue_declare(queue='data_processing')
 
 # Output Queue
-channel.queue_declare(queue='tooutput')
+channel.queue_declare(queue='data_rendering')
 
 # Limiting the number of unacknowledged messages on a channel to 1
 channel.basic_qos(prefetch_count=1)
@@ -46,11 +46,11 @@ def callback(ch, method, properties, message):
     compressed_data = read_file(message)
 
     # sending processed data to outputter
-    ch.basic_publish(exchange='', routing_key='tooutput', body=compressed_data)
+    ch.basic_publish(exchange='', routing_key='data_rendering', body=compressed_data)
     print("Data processed and sent to outputter.")
 
 # MAIN
-channel.basic_consume(queue='toworkers', auto_ack=False, on_message_callback=callback)
+channel.basic_consume(queue='data_processing', auto_ack=False, on_message_callback=callback)
 print('Waiting for messages.')
 channel.start_consuming()
 
