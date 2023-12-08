@@ -1,16 +1,27 @@
-import pika
+import pika, time
 
 from worker_functions import read_file
 
 # COMMUNICATION SETUP
-# Input Queue
-params = pika.ConnectionParameters('localhost')
-connection = pika.BlockingConnection(params)
+# establishing connection to RabbitMQ and retrying if it fails
+for n in range(10):
+    try:
+        params = pika.ConnectionParameters(host='rabbitmq', heartbeat=600)
+        connection = pika.BlockingConnection(params)
+        break
+    except pika.exceptions.AMQPConnectionError as e:
+        print(f"Failed to connect to RabbitMQ after {n+1} attempt(s). Retrying.")
+        time.sleep(7)
 channel = connection.channel()
+
+# Input Queue
 channel.queue_declare(queue='toworkers')
 
 # Output Queue
 channel.queue_declare(queue='tooutput')
+
+# Limiting the number of unacknowledged messages on a channel to 1
+channel.basic_qos(prefetch_count=1)
 
 
 # CALLBACK FUNCTION
@@ -26,18 +37,20 @@ def callback(ch, method, properties, message):
 
     Returns:
         None
-    """
-    #channel.basic_ack(delivery_tag=method.delivery_tag)
+    """   
+    # acknowledging the message
+    ch.basic_ack(delivery_tag=method.delivery_tag)
+    print(f"Received {message} from inputter.")
     
     # processing the received message
     compressed_data = read_file(message)
 
     # sending processed data to outputter
-    channel.basic_publish(exchange='', routing_key='tooutput', body=compressed_data)
-    print("Processed and sent to outputter.")
+    ch.basic_publish(exchange='', routing_key='tooutput', body=compressed_data)
+    print("Data processed and sent to outputter.")
 
 # MAIN
-channel.basic_consume(queue='toworkers', auto_ack=True, on_message_callback=callback)
+channel.basic_consume(queue='toworkers', auto_ack=False, on_message_callback=callback)
 print('Waiting for messages.')
 channel.start_consuming()
 

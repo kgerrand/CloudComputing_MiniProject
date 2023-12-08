@@ -1,7 +1,5 @@
 import awkward as ak
-import pika
-import json
-import gzip
+import pika, json, gzip, time
 
 
 # IMPORT FUNCTIONS
@@ -20,8 +18,15 @@ full_data_dict = {} # dictionary to store all recieved data
 
 
 # COMMUNICATION SETUP
-params = pika.ConnectionParameters('localhost')
-connection = pika.BlockingConnection(params)
+# establishing connection to RabbitMQ and retrying if it fails
+for n in range(10):
+    try:
+        params = pika.ConnectionParameters(host='rabbitmq')
+        connection = pika.BlockingConnection(params)
+        break
+    except pika.exceptions.AMQPConnectionError as e:
+        print(f"Failed to connect to RabbitMQ after {n+1} attempt(s). Retrying.")
+        time.sleep(7)
 channel = connection.channel()
 channel.queue_declare(queue='tooutput')
 
@@ -65,13 +70,15 @@ def callback(ch, method, properties, message):
         channel.stop_consuming()
         print("All samples received!")
     else:
-        print(f"Waiting for {message_threshold - message_count} more sample(s).")
+        print(f"Recieved {message_count} processed dataset(s). Waiting for {message_threshold - message_count} more.")
 
 
 # MAIN
 channel.basic_consume(queue='tooutput', auto_ack=True, on_message_callback=callback)
-print(f'Waiting for samples. Expecting {message_threshold}.')
+print(f'Waiting for data from workers. Expecting {message_threshold} sample(s).')
 channel.start_consuming()
+# closing the connection once all data is received
+connection.close()
 
 plotting_dict = prepare_to_plot(full_data_dict, samples)
 plot_data(plotting_dict, samples)
