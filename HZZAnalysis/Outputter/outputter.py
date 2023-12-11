@@ -23,6 +23,7 @@ for n in range(10):
     try:
         params = pika.ConnectionParameters(host='rabbitmq')
         connection = pika.BlockingConnection(params)
+        start = time.time()
         break
     except pika.exceptions.AMQPConnectionError as e:
         print(f"Failed to connect to RabbitMQ after {n+1} attempt(s). Retrying.")
@@ -82,3 +83,7 @@ connection.close()
 
 plotting_dict = prepare_to_plot(full_data_dict, samples)
 plot_data(plotting_dict, samples)
+
+end = time.time()
+time_taken = end - start
+print(f"Time taken: {time_taken:.1f} seconds.")
